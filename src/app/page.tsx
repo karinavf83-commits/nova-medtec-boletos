@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ACTIVE_STORES } from "@/lib/stores";
+import { maskCpfCnpj, maskPhone } from "@/lib/masks";
 
 const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
@@ -240,10 +241,11 @@ export default function BoletoRequestPage() {
               <Field label="CNPJ / CPF" required>
                 <Input
                   required
+                  inputMode="numeric"
                   className="font-mono-num"
                   placeholder="00.000.000/0000-00"
                   value={form.clientDocument}
-                  onChange={(e) => update("clientDocument", e.target.value)}
+                  onChange={(e) => update("clientDocument", maskCpfCnpj(e.target.value))}
                 />
               </Field>
               <Field label="Pessoa de contato" required>
@@ -267,7 +269,7 @@ export default function BoletoRequestPage() {
                   required
                   placeholder="(00) 00000-0000"
                   value={form.clientPhone}
-                  onChange={(e) => update("clientPhone", e.target.value)}
+                  onChange={(e) => update("clientPhone", maskPhone(e.target.value))}
                 />
               </Field>
             </div>
