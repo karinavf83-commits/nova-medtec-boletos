@@ -21,9 +21,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Solicitação de Boletos — Nova Medtec Cirúrgica",
+  title: "BoletoMed — Nova Medtec Cirúrgica",
   description:
-    "Controle de solicitações de boleto faturado entre lojas e a matriz da Nova Medtec Cirúrgica.",
+    "BoletoMed: controle de solicitações de boleto faturado entre lojas e a matriz da Nova Medtec Cirúrgica.",
 };
 
 export default function RootLayout({

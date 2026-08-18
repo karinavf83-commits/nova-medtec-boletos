@@ -15,11 +15,14 @@ export function BrandHeader({ variant = "public" }: { variant?: "public" | "admi
         <Image
           src="/nova-medtec-logo.jpg"
           alt="Nova Medtec Cirúrgica"
-          width={88}
-          height={88}
+          width={56}
+          height={56}
           className="flex-shrink-0 rounded-md"
           priority
         />
+        <span className="font-display text-xl font-semibold tracking-tight text-primary-foreground">
+          BoletoMed
+        </span>
       </div>
 
       <div className="flex items-center gap-3">
