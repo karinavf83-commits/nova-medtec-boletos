@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { CheckCircle2, FileText, Upload, X } from "lucide-react";
 import { BrandHeader } from "@/components/brand-header";
@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ACTIVE_STORES } from "@/lib/stores";
-import { maskCpfCnpj, maskPhone } from "@/lib/masks";
+import { maskCpfCnpj, maskPhone, maskCurrency, parseCurrency } from "@/lib/masks";
+import { getInstallmentPlan, formatScheduleDates } from "@/lib/installment-plan";
 
 const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
@@ -23,6 +24,7 @@ interface FormState {
   clientEmail: string;
   clientPhone: string;
   invoiceNumber: string;
+  dueDays: string;
   dueDate: string;
   totalAmount: string;
   paymentType: "cash" | "installments";
@@ -40,6 +42,7 @@ const initialState: FormState = {
   clientEmail: "",
   clientPhone: "",
   invoiceNumber: "",
+  dueDays: "",
   dueDate: "",
   totalAmount: "",
   paymentType: "cash",
@@ -56,6 +59,29 @@ export default function BoletoRequestPage() {
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleDueDaysChange = (value: string) => {
+    const days = Number(value);
+    if (value !== "" && Number.isInteger(days) && days >= 0) {
+      const target = new Date();
+      target.setDate(target.getDate() + days);
+      const iso = target.toISOString().slice(0, 10);
+      setForm((prev) => ({ ...prev, dueDays: value, dueDate: iso }));
+    } else {
+      setForm((prev) => ({ ...prev, dueDays: value }));
+    }
+  };
+
+  const numericAmount = parseCurrency(form.totalAmount);
+  const installmentPlan =
+    form.paymentType === "installments" ? getInstallmentPlan(numericAmount) : null;
+
+  useEffect(() => {
+    if (installmentPlan && Number(form.installmentsCount) !== installmentPlan.count) {
+      update("installmentsCount", String(installmentPlan.count));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-sync when the suggested count itself changes
+  }, [installmentPlan?.count]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -121,7 +147,7 @@ export default function BoletoRequestPage() {
           invoiceFilePathname,
           invoiceFileName,
           dueDate: form.dueDate,
-          totalAmount: Number(form.totalAmount.replace(",", ".")),
+          totalAmount: parseCurrency(form.totalAmount),
           paymentType: form.paymentType,
           installmentsCount: form.installmentsCount
             ? Number(form.installmentsCount)
@@ -288,6 +314,19 @@ export default function BoletoRequestPage() {
                   onChange={(e) => update("invoiceNumber", e.target.value)}
                 />
               </Field>
+              <Field label="Dias para vencimento">
+                <Input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  placeholder="Ex: 30"
+                  value={form.dueDays}
+                  onChange={(e) => handleDueDaysChange(e.target.value)}
+                />
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Preenche o vencimento automaticamente a partir de hoje.
+                </span>
+              </Field>
               <Field label="Vencimento" required>
                 <Input
                   type="date"
@@ -303,7 +342,7 @@ export default function BoletoRequestPage() {
                   className="font-mono-num"
                   placeholder="0,00"
                   value={form.totalAmount}
-                  onChange={(e) => update("totalAmount", e.target.value)}
+                  onChange={(e) => update("totalAmount", maskCurrency(e.target.value))}
                 />
               </Field>
               <Field label="Pagamento" required>
@@ -323,9 +362,23 @@ export default function BoletoRequestPage() {
                     type="number"
                     min={2}
                     required
+                    readOnly={!!installmentPlan}
+                    className={installmentPlan ? "bg-muted" : undefined}
                     value={form.installmentsCount}
                     onChange={(e) => update("installmentsCount", e.target.value)}
                   />
+                  {installmentPlan && (
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      Regra automática ({numericAmount >= 5000 ? "acima de R$ 5.000" : "acima de R$ 2.000"}):
+                      {" "}
+                      {installmentPlan.count}x — vencimentos sugeridos em{" "}
+                      {formatScheduleDates(
+                        form.dueDate ? new Date(form.dueDate) : new Date(),
+                        installmentPlan.intervalsDays
+                      )}
+                      .
+                    </span>
+                  )}
                 </Field>
               )}
             </div>
