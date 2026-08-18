@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Download, Eye, FileX, Search, X } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  Download,
+  Eye,
+  FileSearch,
+  FileX,
+  Search,
+  Wallet,
+  X,
+} from "lucide-react";
 import { BrandHeader } from "@/components/brand-header";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -41,6 +51,12 @@ interface ListResponse {
   page: number;
   pageSize: number;
   availableStores: string[];
+  summary: {
+    pending: number;
+    in_review: number;
+    done: number;
+    openAmount: number;
+  };
 }
 
 const STATUS_META: Record<BoletoStatus, { label: string; variant: "warning" | "info" | "success" }> = {
@@ -162,8 +178,8 @@ export default function AdminPanelPage() {
     <div className="min-h-screen bg-background">
       <BrandHeader variant="admin" />
 
-      <main className="mx-auto max-w-[90rem] px-6 py-6 pb-16">
-        <div className="mb-4 flex items-end justify-between gap-4">
+      <main className="mx-auto max-w-[90rem] px-6 py-8 pb-16">
+        <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <h1 className="font-display text-2xl font-semibold text-foreground">
               Solicitações de Boleto
@@ -178,7 +194,38 @@ export default function AdminPanelPage() {
           </Button>
         </div>
 
-        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface p-3">
+        <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard
+            icon={<Clock size={18} />}
+            label="Pendentes"
+            value={data ? String(data.summary.pending) : "—"}
+            tone="warning"
+            isLoading={isLoading && !data}
+          />
+          <StatCard
+            icon={<FileSearch size={18} />}
+            label="Em análise"
+            value={data ? String(data.summary.in_review) : "—"}
+            tone="info"
+            isLoading={isLoading && !data}
+          />
+          <StatCard
+            icon={<CheckCircle2 size={18} />}
+            label="Feitas"
+            value={data ? String(data.summary.done) : "—"}
+            tone="success"
+            isLoading={isLoading && !data}
+          />
+          <StatCard
+            icon={<Wallet size={18} />}
+            label="Valor em aberto"
+            value={data ? currencyFormatter.format(data.summary.openAmount) : "—"}
+            tone="neutral"
+            isLoading={isLoading && !data}
+          />
+        </div>
+
+        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface p-3 shadow-sm">
           <div className="relative">
             <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -251,7 +298,7 @@ export default function AdminPanelPage() {
           )}
         </div>
 
-        <div className="overflow-x-auto rounded-md border border-border bg-surface">
+        <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-sm">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
@@ -269,11 +316,18 @@ export default function AdminPanelPage() {
             </thead>
             <tbody>
               {isLoading && !data ? (
-                <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
-                    Carregando...
-                  </td>
-                </tr>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i}>
+                    {Array.from({ length: 8 }).map((__, j) => (
+                      <td key={j} className="border-b border-border px-3 py-3">
+                        <div
+                          className="h-4 animate-pulse rounded bg-muted"
+                          style={{ width: j === 7 ? "3rem" : `${60 + ((i + j) % 3) * 15}%` }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))
               ) : data && data.items.length > 0 ? (
                 data.items.map((item) => (
                   <tr key={item.id} className="hover:bg-muted">
@@ -305,10 +359,26 @@ export default function AdminPanelPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-3 py-12 text-center text-muted-foreground">
-                    <div className="flex flex-col items-center gap-2">
-                      <FileX size={24} />
-                      <span>Nenhuma solicitação encontrada.</span>
+                  <td colSpan={8} className="px-3 py-16 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                        <FileX size={22} />
+                      </span>
+                      <div>
+                        <p className="font-medium text-foreground">
+                          Nenhuma solicitação encontrada
+                        </p>
+                        <p className="mt-0.5 text-sm text-muted-foreground">
+                          {storeFilter !== ALL || clientFilter || statusFilter !== ALL || dateFrom || dateTo
+                            ? "Tente ajustar ou limpar os filtros acima."
+                            : "As solicitações enviadas pelas lojas vão aparecer aqui."}
+                        </p>
+                      </div>
+                      {(storeFilter !== ALL || clientFilter || statusFilter !== ALL || dateFrom || dateTo) && (
+                        <Button variant="outline" size="sm" onClick={clearFilters}>
+                          <X size={14} /> Limpar filtros
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -427,6 +497,45 @@ export default function AdminPanelPage() {
           </div>
         )}
       </Modal>
+    </div>
+  );
+}
+
+const STAT_TONE_CLASSES: Record<"warning" | "info" | "success" | "neutral", string> = {
+  warning: "bg-warning-bg text-warning",
+  info: "bg-info-bg text-info",
+  success: "bg-success-bg text-success",
+  neutral: "bg-accent/10 text-accent",
+};
+
+function StatCard({
+  icon,
+  label,
+  value,
+  tone,
+  isLoading,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone: "warning" | "info" | "success" | "neutral";
+  isLoading?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-4 shadow-sm">
+      <span
+        className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${STAT_TONE_CLASSES[tone]}`}
+      >
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+        {isLoading ? (
+          <div className="mt-1.5 h-6 w-16 animate-pulse rounded bg-muted" />
+        ) : (
+          <p className="font-display truncate text-xl font-semibold text-foreground">{value}</p>
+        )}
+      </div>
     </div>
   );
 }

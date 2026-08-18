@@ -1,7 +1,7 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { count, desc } from "drizzle-orm";
+import { count, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { boletoRequests } from "@/lib/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
   const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
   const where = buildBoletoRequestWhere(filters);
 
-  const [items, totalRow, storeRows] = await Promise.all([
+  const [items, totalRow, storeRows, statusRows] = await Promise.all([
     db
       .select()
       .from(boletoRequests)
@@ -107,7 +107,21 @@ export async function GET(request: NextRequest) {
       .selectDistinct({ storeName: boletoRequests.storeName })
       .from(boletoRequests)
       .orderBy(boletoRequests.storeName),
+    db
+      .select({
+        status: boletoRequests.status,
+        count: count(),
+        totalAmount: sql<string>`coalesce(sum(${boletoRequests.totalAmount}), 0)`,
+      })
+      .from(boletoRequests)
+      .groupBy(boletoRequests.status),
   ]);
+
+  const summary = { pending: 0, in_review: 0, done: 0, openAmount: 0 };
+  for (const row of statusRows) {
+    summary[row.status] = row.count;
+    if (row.status !== "done") summary.openAmount += Number(row.totalAmount);
+  }
 
   return NextResponse.json({
     items,
@@ -115,5 +129,6 @@ export async function GET(request: NextRequest) {
     page,
     pageSize: PAGE_SIZE,
     availableStores: storeRows.map((r) => r.storeName),
+    summary,
   });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { CheckCircle2, FileText, Upload, X } from "lucide-react";
 import { BrandHeader } from "@/components/brand-header";
@@ -10,7 +10,12 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ACTIVE_STORES } from "@/lib/stores";
 import { maskCpfCnpj, maskPhone, maskCurrency, parseCurrency } from "@/lib/masks";
-import { getInstallmentPlan, formatScheduleDates } from "@/lib/installment-plan";
+import { getInstallmentPlan, buildInstallmentSchedule, toIsoDate } from "@/lib/installment-plan";
+
+const currencyFormatter = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
 
 const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
@@ -28,7 +33,6 @@ interface FormState {
   dueDate: string;
   totalAmount: string;
   paymentType: "cash" | "installments";
-  installmentsCount: string;
   chargeReason: string;
 }
 
@@ -46,7 +50,6 @@ const initialState: FormState = {
   dueDate: "",
   totalAmount: "",
   paymentType: "cash",
-  installmentsCount: "",
   chargeReason: "",
 };
 
@@ -75,13 +78,10 @@ export default function BoletoRequestPage() {
   const numericAmount = parseCurrency(form.totalAmount);
   const installmentPlan =
     form.paymentType === "installments" ? getInstallmentPlan(numericAmount) : null;
-
-  useEffect(() => {
-    if (installmentPlan && Number(form.installmentsCount) !== installmentPlan.count) {
-      update("installmentsCount", String(installmentPlan.count));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-sync when the suggested count itself changes
-  }, [installmentPlan?.count]);
+  const installmentSchedule =
+    installmentPlan && Number.isFinite(numericAmount)
+      ? buildInstallmentSchedule(new Date(), installmentPlan, numericAmount)
+      : null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -102,16 +102,25 @@ export default function BoletoRequestPage() {
     e.preventDefault();
     setError(null);
 
-    if (!form.dueDate) {
-      setError("Informe o vencimento.");
-      return;
-    }
-    if (
-      form.paymentType === "installments" &&
-      (!form.installmentsCount || Number(form.installmentsCount) < 2)
-    ) {
-      setError("Informe o número de parcelas.");
-      return;
+    let finalDueDate: string;
+    let finalInstallmentsCount: number | null;
+
+    if (form.paymentType === "cash") {
+      if (!form.dueDate) {
+        setError("Informe a quantidade de dias para vencimento.");
+        return;
+      }
+      finalDueDate = form.dueDate;
+      finalInstallmentsCount = null;
+    } else {
+      if (!installmentPlan || !installmentSchedule) {
+        setError(
+          "Parcelamento disponível apenas para valores a partir de R$ 2.000,00. Informe o valor total ou selecione \"À vista\"."
+        );
+        return;
+      }
+      finalDueDate = toIsoDate(installmentSchedule[0].dueDate);
+      finalInstallmentsCount = installmentPlan.count;
     }
 
     setIsSubmitting(true);
@@ -146,12 +155,10 @@ export default function BoletoRequestPage() {
           invoiceFileUrl,
           invoiceFilePathname,
           invoiceFileName,
-          dueDate: form.dueDate,
-          totalAmount: parseCurrency(form.totalAmount),
+          dueDate: finalDueDate,
+          totalAmount: numericAmount,
           paymentType: form.paymentType,
-          installmentsCount: form.installmentsCount
-            ? Number(form.installmentsCount)
-            : null,
+          installmentsCount: finalInstallmentsCount,
           chargeReason: form.chargeReason || undefined,
         }),
       });
@@ -314,27 +321,6 @@ export default function BoletoRequestPage() {
                   onChange={(e) => update("invoiceNumber", e.target.value)}
                 />
               </Field>
-              <Field label="Dias para vencimento">
-                <Input
-                  type="number"
-                  min={0}
-                  inputMode="numeric"
-                  placeholder="Ex: 30"
-                  value={form.dueDays}
-                  onChange={(e) => handleDueDaysChange(e.target.value)}
-                />
-                <span className="mt-1 block text-xs text-muted-foreground">
-                  Preenche o vencimento automaticamente a partir de hoje.
-                </span>
-              </Field>
-              <Field label="Vencimento" required>
-                <Input
-                  type="date"
-                  required
-                  value={form.dueDate}
-                  onChange={(e) => update("dueDate", e.target.value)}
-                />
-              </Field>
               <Field label="Valor total (R$)" required>
                 <Input
                   required
@@ -356,27 +342,47 @@ export default function BoletoRequestPage() {
                   <option value="installments">Parcelado</option>
                 </Select>
               </Field>
-              {form.paymentType === "installments" && (
-                <Field label="Número de parcelas" required>
+
+              {form.paymentType === "cash" && (
+                <Field label="Dias para vencimento" required>
                   <Input
                     type="number"
-                    min={2}
+                    min={0}
                     required
-                    readOnly={!!installmentPlan}
-                    className={installmentPlan ? "bg-muted" : undefined}
-                    value={form.installmentsCount}
-                    onChange={(e) => update("installmentsCount", e.target.value)}
+                    inputMode="numeric"
+                    placeholder="Ex: 30"
+                    value={form.dueDays}
+                    onChange={(e) => handleDueDaysChange(e.target.value)}
                   />
-                  {installmentPlan && (
+                  {form.dueDate && (
                     <span className="mt-1 block text-xs text-muted-foreground">
-                      Regra automática ({numericAmount >= 5000 ? "acima de R$ 5.000" : "acima de R$ 2.000"}):
-                      {" "}
-                      {installmentPlan.count}x — vencimentos sugeridos em{" "}
-                      {formatScheduleDates(
-                        form.dueDate ? new Date(form.dueDate) : new Date(),
-                        installmentPlan.intervalsDays
-                      )}
-                      .
+                      Vencimento: {new Date(`${form.dueDate}T00:00:00`).toLocaleDateString("pt-BR")}
+                    </span>
+                  )}
+                </Field>
+              )}
+
+              {form.paymentType === "installments" && (
+                <Field label="Parcelamento">
+                  {installmentPlan && installmentSchedule ? (
+                    <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm">
+                      <p className="font-medium">
+                        {installmentPlan.count}x — regra automática (
+                        {numericAmount >= 5000 ? "acima de R$ 5.000" : "acima de R$ 2.000"})
+                      </p>
+                      <ul className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
+                        {installmentSchedule.map((item, i) => (
+                          <li key={i}>
+                            {i + 1}ª parcela: {currencyFormatter.format(item.amount)} — vencimento{" "}
+                            {item.dueDate.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <span className="block rounded-md border border-error/20 bg-error-bg px-3 py-2 text-sm text-error">
+                      Parcelamento disponível apenas para valores a partir de R$ 2.000,00.
+                      Informe o valor total ou selecione &quot;À vista&quot;.
                     </span>
                   )}
                 </Field>
