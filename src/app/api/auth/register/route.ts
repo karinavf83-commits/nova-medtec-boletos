@@ -59,20 +59,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Registration error:", error);
-    const cause =
-      error instanceof Error && error.cause instanceof Error
-        ? error.cause.message
-        : undefined;
     const message =
       error instanceof z.ZodError
         ? error.errors[0]?.message
-        : error instanceof Error
-          ? `${error.message}${cause ? ` | causa: ${cause}` : ""}${
-              (error as { code?: string }).code
-                ? ` | code: ${(error as { code?: string }).code}`
-                : ""
-            }`
-          : "Falha no cadastro";
+        : "Falha no cadastro";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
