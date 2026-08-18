@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { ACTIVE_STORES } from "@/lib/stores";
 
 const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
@@ -186,13 +187,21 @@ export default function BoletoRequestPage() {
               Quem está solicitando
             </h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Loja / CNPJ solicitante" required>
-                <Input
+              <Field label="Loja solicitante" required>
+                <Select
                   required
-                  placeholder="Ex: Nova Medtec Filial Centro"
                   value={form.storeName}
                   onChange={(e) => update("storeName", e.target.value)}
-                />
+                >
+                  <option value="" disabled>
+                    Selecione a loja
+                  </option>
+                  {ACTIVE_STORES.map((store) => (
+                    <option key={store} value={store}>
+                      {store}
+                    </option>
+                  ))}
+                </Select>
               </Field>
               <Field label="Seu nome" required>
                 <Input

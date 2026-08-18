@@ -1,0 +1,26 @@
+// Lojas/unidades ativas da Nova Medtec Cirúrgica que podem solicitar boleto.
+// Fonte: planilha "lojas ativas" fornecida pela administração.
+export const ACTIVE_STORES = [
+  "Escritório Central",
+  "Borges Lagoa 1",
+  "Campo Belo",
+  "Lapa",
+  "Veridiana",
+  "Santana",
+  "Paraíso",
+  "Rebouças",
+  "Tatuapé",
+  "Alphaville",
+  "Sírio Libanês",
+  "Borges Lagoa 4",
+  "Moema",
+  "Perdizes",
+  "Lorena",
+  "Bourbon",
+  "Eldorado",
+  "Hcor",
+  "Vila Nova Star",
+  "Feira e Eventos",
+  "Guarulhos 2",
+  "Jardins",
+] as const;

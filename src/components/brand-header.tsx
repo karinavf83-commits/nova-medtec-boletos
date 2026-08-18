@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Stethoscope, LogOut } from "lucide-react";
+import Image from "next/image";
+import { LogOut } from "lucide-react";
 import { Button } from "./ui/button";
 import { useCurrentUser } from "@/lib/use-current-user";
 
@@ -11,17 +12,14 @@ export function BrandHeader({ variant = "public" }: { variant?: "public" | "admi
   return (
     <header className="flex items-center justify-between gap-4 border-b-[3px] border-accent bg-primary px-6 py-4">
       <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
-          <Stethoscope size={20} />
-        </span>
-        <span className="flex flex-col leading-tight">
-          <span className="font-display text-xl font-semibold text-primary-foreground">
-            Nova Medtec
-          </span>
-          <span className="text-[0.6875rem] uppercase tracking-wide text-primary-foreground/70">
-            Cirúrgica
-          </span>
-        </span>
+        <Image
+          src="/nova-medtec-logo.jpg"
+          alt="Nova Medtec Cirúrgica"
+          width={88}
+          height={88}
+          className="flex-shrink-0 rounded-md"
+          priority
+        />
       </div>
 
       <div className="flex items-center gap-3">
