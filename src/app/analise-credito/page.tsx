@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { BrandHeader } from "@/components/brand-header";
+import { PublicNav } from "@/components/public-nav";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
@@ -77,6 +78,7 @@ export default function CreditAnalysisPage() {
   return (
     <div className="min-h-screen bg-background">
       <BrandHeader variant="public" />
+      <PublicNav />
 
       <main className="mx-auto max-w-3xl px-4 py-8 pb-16">
         <div className="mb-6">

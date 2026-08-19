@@ -11,7 +11,7 @@ export function BrandHeader({ variant = "public" }: { variant?: "public" | "admi
 
   return (
     <header className="flex items-center justify-between gap-4 border-b-[3px] border-accent bg-primary px-6 py-4">
-      <div className="flex items-center gap-3">
+      <Link href="/" className="flex items-center gap-3">
         <Image
           src="/nova-medtec-logo.jpg"
           alt="Nova Medtec Cirúrgica"
@@ -23,7 +23,7 @@ export function BrandHeader({ variant = "public" }: { variant?: "public" | "admi
         <span className="font-display text-xl font-semibold tracking-tight text-primary-foreground">
           BoletoMed
         </span>
-      </div>
+      </Link>
 
       <div className="flex items-center gap-3">
         {variant === "admin" && user ? (
