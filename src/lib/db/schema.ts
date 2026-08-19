@@ -89,9 +89,39 @@ export const boletoRequests = pgTable("boleto_requests", {
   ),
 });
 
+export const creditAnalysisRequests = pgTable("credit_analysis_requests", {
+  id: serial("id").primaryKey(),
+  status: boletoStatusEnum("status").notNull().default("pending"),
+  storeName: varchar("store_name", { length: 255 }).notNull(),
+  requestedByName: varchar("requested_by_name", { length: 255 }),
+  requestedByEmail: varchar("requested_by_email", { length: 255 }),
+  clientDocument: varchar("client_document", { length: 32 }).notNull(),
+  clientName: varchar("client_name", { length: 255 }).notNull(),
+  clientPhone: varchar("client_phone", { length: 32 }),
+  intendedPurchaseAmount: numeric("intended_purchase_amount", {
+    precision: 12,
+    scale: 2,
+  }).notNull(),
+  notes: text("notes"),
+  adminNotes: text("admin_notes"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  completedByUserId: integer("completed_by_user_id").references(
+    () => users.id
+  ),
+});
+
 export type User = typeof users.$inferSelect;
 export type BoletoRequest = typeof boletoRequests.$inferSelect;
 export type NewBoletoRequest = typeof boletoRequests.$inferInsert;
 export type BoletoStatus = (typeof boletoStatusEnum.enumValues)[number];
 export type BoletoPaymentType =
   (typeof boletoPaymentTypeEnum.enumValues)[number];
+export type CreditAnalysisRequest = typeof creditAnalysisRequests.$inferSelect;
+export type NewCreditAnalysisRequest =
+  typeof creditAnalysisRequests.$inferInsert;

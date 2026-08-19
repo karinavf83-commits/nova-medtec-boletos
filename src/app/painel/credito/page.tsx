@@ -1,17 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  CheckCircle2,
-  Clock,
-  Download,
-  Eye,
-  FileSearch,
-  FileX,
-  Search,
-  Wallet,
-  X,
-} from "lucide-react";
+import { CheckCircle2, Clock, Eye, FileSearch, FileX, Search, Wallet, X } from "lucide-react";
 import { BrandHeader } from "@/components/brand-header";
 import { PanelNav } from "@/components/panel-nav";
 import { Input } from "@/components/ui/input";
@@ -21,25 +11,17 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Modal } from "@/components/ui/modal";
 
-type BoletoStatus = "pending" | "in_review" | "done";
+type CreditStatus = "pending" | "in_review" | "done";
 
-interface BoletoRequestItem {
+interface CreditAnalysisItem {
   id: number;
-  status: BoletoStatus;
+  status: CreditStatus;
   storeName: string;
   clientName: string;
   clientDocument: string;
-  dueDate: string;
-  invoiceNumber: string;
-  invoiceFileUrl: string | null;
-  invoiceFileName: string | null;
-  chargeReason: string | null;
-  totalAmount: string;
-  paymentType: "cash" | "installments";
-  installmentsCount: number | null;
-  clientEmail: string;
-  clientPhone: string;
-  contactPerson: string;
+  clientPhone: string | null;
+  intendedPurchaseAmount: string;
+  notes: string | null;
   requestedByName: string | null;
   requestedByEmail: string | null;
   adminNotes: string | null;
@@ -47,7 +29,7 @@ interface BoletoRequestItem {
 }
 
 interface ListResponse {
-  items: BoletoRequestItem[];
+  items: CreditAnalysisItem[];
   total: number;
   page: number;
   pageSize: number;
@@ -56,19 +38,14 @@ interface ListResponse {
     pending: number;
     in_review: number;
     done: number;
-    openAmount: number;
+    totalAmount: number;
   };
 }
 
-const STATUS_META: Record<BoletoStatus, { label: string; variant: "warning" | "info" | "success" }> = {
+const STATUS_META: Record<CreditStatus, { label: string; variant: "warning" | "info" | "success" }> = {
   pending: { label: "Pendente", variant: "warning" },
   in_review: { label: "Em análise", variant: "info" },
   done: { label: "Feito", variant: "success" },
-};
-
-const PAYMENT_LABELS: Record<string, string> = {
-  cash: "À vista",
-  installments: "Parcelado",
 };
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
@@ -82,7 +59,7 @@ function formatDate(value: string) {
 
 const ALL = "__all";
 
-export default function AdminPanelPage() {
+export default function CreditAnalysisPanelPage() {
   const [data, setData] = useState<ListResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [storeFilter, setStoreFilter] = useState(ALL);
@@ -92,8 +69,8 @@ export default function AdminPanelPage() {
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
 
-  const [selected, setSelected] = useState<BoletoRequestItem | null>(null);
-  const [statusDraft, setStatusDraft] = useState<BoletoStatus>("pending");
+  const [selected, setSelected] = useState<CreditAnalysisItem | null>(null);
+  const [statusDraft, setStatusDraft] = useState<CreditStatus>("pending");
   const [notesDraft, setNotesDraft] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -111,7 +88,7 @@ export default function AdminPanelPage() {
   const fetchList = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/boleto-requests?${buildParams().toString()}`, {
+      const res = await fetch(`/api/credit-analysis?${buildParams().toString()}`, {
         credentials: "include",
       });
       if (res.ok) {
@@ -127,7 +104,7 @@ export default function AdminPanelPage() {
     fetchList();
   }, [fetchList]);
 
-  const openDetails = (item: BoletoRequestItem) => {
+  const openDetails = (item: CreditAnalysisItem) => {
     setSelected(item);
     setStatusDraft(item.status);
     setNotesDraft(item.adminNotes ?? "");
@@ -137,7 +114,7 @@ export default function AdminPanelPage() {
     if (!selected) return;
     setIsSaving(true);
     try {
-      const res = await fetch("/api/boleto-requests/status", {
+      const res = await fetch("/api/credit-analysis/status", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -160,10 +137,6 @@ export default function AdminPanelPage() {
     }
   };
 
-  const handleExport = () => {
-    window.open(`/api/boleto-requests/export?${buildParams().toString()}`, "_blank");
-  };
-
   const clearFilters = () => {
     setStoreFilter(ALL);
     setClientFilter("");
@@ -174,6 +147,8 @@ export default function AdminPanelPage() {
   };
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  const hasActiveFilters =
+    storeFilter !== ALL || !!clientFilter || statusFilter !== ALL || !!dateFrom || !!dateTo;
 
   return (
     <div className="min-h-screen bg-background">
@@ -184,16 +159,12 @@ export default function AdminPanelPage() {
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <h1 className="font-display text-2xl font-semibold text-foreground">
-              Solicitações de Boleto
+              Análise de Crédito
             </h1>
             <p className="text-sm text-muted-foreground">
               {data ? `${data.total} solicitação(ões) encontrada(s)` : ""}
             </p>
           </div>
-          <Button variant="outline" onClick={handleExport}>
-            <Download size={16} />
-            Exportar CSV
-          </Button>
         </div>
 
         <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -220,8 +191,8 @@ export default function AdminPanelPage() {
           />
           <StatCard
             icon={<Wallet size={18} />}
-            label="Valor em aberto"
-            value={data ? currencyFormatter.format(data.summary.openAmount) : "—"}
+            label="Valor pretendido total"
+            value={data ? currencyFormatter.format(data.summary.totalAmount) : "—"}
             tone="neutral"
             isLoading={isLoading && !data}
           />
@@ -293,7 +264,7 @@ export default function AdminPanelPage() {
             />
           </div>
 
-          {(storeFilter !== ALL || clientFilter || statusFilter !== ALL || dateFrom || dateTo) && (
+          {hasActiveFilters && (
             <Button variant="ghost" size="sm" onClick={clearFilters}>
               <X size={14} /> Limpar filtros
             </Button>
@@ -304,7 +275,7 @@ export default function AdminPanelPage() {
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
-                {["Loja", "Cliente", "NF", "Vencimento", "Valor", "Status", "Solicitado em", ""].map(
+                {["Loja", "Cliente", "CNPJ/CPF", "Telefone", "Valor pretendido", "Status", "Solicitado em", ""].map(
                   (h) => (
                     <th
                       key={h}
@@ -336,13 +307,13 @@ export default function AdminPanelPage() {
                     <td className="whitespace-nowrap border-b border-border px-3 py-2">{item.storeName}</td>
                     <td className="whitespace-nowrap border-b border-border px-3 py-2">{item.clientName}</td>
                     <td className="font-mono-num whitespace-nowrap border-b border-border px-3 py-2">
-                      {item.invoiceNumber}
+                      {item.clientDocument}
                     </td>
                     <td className="font-mono-num whitespace-nowrap border-b border-border px-3 py-2">
-                      {formatDate(item.dueDate)}
+                      {item.clientPhone || "—"}
                     </td>
                     <td className="font-mono-num whitespace-nowrap border-b border-border px-3 py-2">
-                      {currencyFormatter.format(Number(item.totalAmount))}
+                      {currencyFormatter.format(Number(item.intendedPurchaseAmount))}
                     </td>
                     <td className="whitespace-nowrap border-b border-border px-3 py-2">
                       <Badge variant={STATUS_META[item.status].variant}>
@@ -371,12 +342,12 @@ export default function AdminPanelPage() {
                           Nenhuma solicitação encontrada
                         </p>
                         <p className="mt-0.5 text-sm text-muted-foreground">
-                          {storeFilter !== ALL || clientFilter || statusFilter !== ALL || dateFrom || dateTo
+                          {hasActiveFilters
                             ? "Tente ajustar ou limpar os filtros acima."
-                            : "As solicitações enviadas pelas lojas vão aparecer aqui."}
+                            : "As solicitações de análise de crédito enviadas pelas lojas vão aparecer aqui."}
                         </p>
                       </div>
-                      {(storeFilter !== ALL || clientFilter || statusFilter !== ALL || dateFrom || dateTo) && (
+                      {hasActiveFilters && (
                         <Button variant="outline" size="sm" onClick={clearFilters}>
                           <X size={14} /> Limpar filtros
                         </Button>
@@ -412,65 +383,35 @@ export default function AdminPanelPage() {
       <Modal
         open={!!selected}
         onClose={() => setSelected(null)}
-        title={selected ? `Solicitação #${selected.id} — ${selected.clientName}` : ""}
+        title={selected ? `Análise #${selected.id} — ${selected.clientName}` : ""}
       >
         {selected && (
           <div className="max-h-[75vh] overflow-y-auto">
             <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Detail label="Loja" value={selected.storeName} />
               <Detail label="Solicitado por" value={selected.requestedByName || "—"} />
-              <Detail label="CNPJ/CPF" value={selected.clientDocument} mono />
-              <Detail label="Nota fiscal" value={selected.invoiceNumber} mono />
-              <Detail label="Vencimento" value={formatDate(selected.dueDate)} mono />
+              <Detail label="CNPJ/CPF do cliente" value={selected.clientDocument} mono />
+              <Detail label="Telefone do cliente" value={selected.clientPhone || "—"} mono />
               <Detail
-                label="Valor"
-                value={currencyFormatter.format(Number(selected.totalAmount))}
+                label="Valor de intenção de compra"
+                value={currencyFormatter.format(Number(selected.intendedPurchaseAmount))}
                 mono
               />
-              <Detail
-                label="Pagamento"
-                value={
-                  PAYMENT_LABELS[selected.paymentType] +
-                  (selected.paymentType === "installments" && selected.installmentsCount
-                    ? ` (${selected.installmentsCount}x)`
-                    : "")
-                }
-              />
-              <Detail label="E-mail cliente" value={selected.clientEmail} />
-              <Detail label="Telefone" value={selected.clientPhone} />
-              <Detail label="Pessoa de contato" value={selected.contactPerson} />
+              <Detail label="Solicitado em" value={formatDate(selected.createdAt)} mono />
             </div>
 
-            {selected.chargeReason && (
+            {selected.notes && (
               <div className="mb-4">
-                <Detail label="Motivo da cobrança" value={selected.chargeReason} />
+                <Detail label="Observações da loja" value={selected.notes} />
               </div>
             )}
-
-            <div className="mb-4">
-              {selected.invoiceFileUrl ? (
-                <a
-                  href={selected.invoiceFileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted"
-                >
-                  <Download size={14} />
-                  Ver nota fiscal{selected.invoiceFileName ? ` (${selected.invoiceFileName})` : ""}
-                </a>
-              ) : (
-                <span className="text-sm italic text-muted-foreground">
-                  Nenhuma nota fiscal anexada
-                </span>
-              )}
-            </div>
 
             <div className="grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-[12rem_1fr]">
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium">Status</label>
                 <Select
                   value={statusDraft}
-                  onChange={(e) => setStatusDraft(e.target.value as BoletoStatus)}
+                  onChange={(e) => setStatusDraft(e.target.value as CreditStatus)}
                 >
                   <option value="pending">Pendente</option>
                   <option value="in_review">Em análise</option>
